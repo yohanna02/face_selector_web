@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Line Selector</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        background-color: #f0f0f0;
+      }
+      #status {
+        font-size: 1.5rem;
+      }
+      .container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      @media only screen and (max-width: 600px) {
+        .container {
+          flex-direction: column;
+          height: auto;
+        }
+      }
+      section {
+        width: 300px;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: 0.4s;
+        transition: 0.4s;
+      }
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: 0.4s;
+        transition: 0.4s;
+      }
+      input:checked + #red {
+        background-color: red;
+      }
+      input:focus + #red {
+        box-shadow: 0 0 1px red;
+      }
+      input:checked + #blue {
+        background-color: blue;
+      }
+      input:focus + #blue {
+        box-shadow: 0 0 1px blue;
+      }
+      input:checked + #yellow {
+        background-color: yellow;
+      }
+      input:focus + #yellow {
+        box-shadow: 0 0 1px yellow;
+      }
+      input:checked + .slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+      }
+      /* Rounded sliders */
+      .slider.round {
+        border-radius: 34px;
+      }
+      .slider.round:before {
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="status"></p>
+    <div class="container">
+      <section>
+        <div id="red-container">
+          <h3 style="color: red">Red Line</h3>
+          <p>Voltage:</p>
+          <p>Current:</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="red-switch" />
+          <span class="slider round" id="red"></span>
+        </label>
+      </section>
+      <section>
+        <div id="blue-container">
+          <h3 style="color: blue">Blue Line</h3>
+          <p>Voltage:</p>
+          <p>Current:</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="blue-switch" />
+          <span class="slider round" id="blue"></span>
+        </label>
+      </section>
+      <section>
+        <div id="yellow-container">
+          <h3 style="color: yellow">Yellow Line</h3>
+          <p>Voltage:</p>
+          <p>Current:</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="yellow-switch" />
+          <span class="slider round" id="yellow"></span>
+        </label>
+      </section>
+    </div>
+  </body>
+
+  <script>
+    let redPin = "1111";
+    let bluePin = "1111";
+    let yellowPin = "1111";
+    const status = document.getElementById("status");
+    const socket = new WebSocket(`wss://${window.location.host}`);
+    const redContainer = document.getElementById("red-container");
+    const blueContainer = document.getElementById("blue-container");
+    const yellowContainer = document.getElementById("yellow-container");
+    const redSwitch = document.getElementById("red-switch");
+    const blueSwitch = document.getElementById("blue-switch");
+    const yellowSwitch = document.getElementById("yellow-switch");
+    socket.addEventListener("open", () => {
+      status.innerText = "Connected";
+      status.style.color = "yellow";
+      socket.send("fetch");
+    });
+    socket.addEventListener("close", () => {
+      status.innerText = "Disconnected";
+      status.style.color = "red";
+    });
+    socket.addEventListener("message", (e) => {
+      if (e.data.substring(0, 3) === "esp") {
+        const res = e.data.substring(3).split(":");
+        if (line === "red") {
+          redSwitch.checked = res[0] === "on" ? true : false;
+        }
+        if (line === "blue") {
+          blueSwitch.checked = res[0] === "on" ? true : false;
+        }
+        if (line === "yellow") {
+          yellowSwitch.checked = res[0] === "on" ? true : false;
+        }
+      }
+      if (e.data.substring(0, 5) === "fetch") {
+        const data = e.data.split("-");
+        redSwitch.checked = data[1] === "on" ? true : false;
+        blueSwitch.checked = data[2] === "on" ? true : false;
+        yellowSwitch.checked = data[3] === "on" ? true : false;
+      } else {
+        const data = e.data.split(":");
+        redContainer.children[1].textContent = `Voltage: ${data[0]}V`;
+        redContainer.children[2].textContent = `Current: ${parseFloat(data[1]) < 0 ? 0 : data[1]}A`;
+        blueContainer.children[1].textContent = `Voltage: ${data[0]}V`;
+        blueContainer.children[2].textContent = `Current: ${parseFloat(data[2]) < 0 ? 0 : data[2]}A`;
+        yellowContainer.children[1].textContent = `Voltage: ${data[0]}V`;
+        yellowContainer.children[2].textContent = `Current: ${parseFloat(data[3]) < 0 ? 0 : data[3]}A`;
+      }
+    });
+    const switches = document.querySelectorAll("input[type='checkbox']");
+    switches.forEach((sw) => {
+      sw.addEventListener("change", (e) => {
+        const line = e.target.id.split("-")[0];
+        if (e.target.checked && line === "red") {
+          redPin = prompt("Enter pin");
+          if (redPin === null) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        } else if (line === "red") {
+          const enteredRedPin = prompt("Enter pin");
+          if (enteredRedPin !== redPin) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        }
+        if (e.target.checked && line === "blue") {
+          bluePin = prompt("Enter pin");
+          if (bluePin === null) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        } else if (line === "blue") {
+          const enteredBluePin = prompt("Enter pin");
+          if (enteredBluePin !== bluePin) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        }
+        if (e.target.checked && line === "yellow") {
+          yellowPin = prompt("Enter pin");
+          if (yellowPin === null) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        } else if (line === "yellow") {
+          const enteredYellowPin = prompt("Enter pin");
+          if (enteredYellowPin !== yellowPin) {
+            e.target.checked = !e.target.checked;
+            return;
+          }
+        }
+        const state = e.target.checked ? "on" : "off";
+        socket.send(`esp${line}:${state}`);
+      });
+    });
+  </script>
+</html>
