@@ -153,7 +153,7 @@
     const yellowSwitch = document.getElementById("yellow-switch");
     socket.addEventListener("open", () => {
       status.innerText = "Connected";
-      status.style.color = "yellow";
+      status.style.color = "green";
       socket.send("fetch");
     });
     socket.addEventListener("close", () => {
